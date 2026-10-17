@@ -41,6 +41,18 @@ jobs:
       - name: Compilar o site
         run: npm run build
 
+      - name: Renderizar revisão das artes de magia
+        if: github.event_name == 'pull_request'
+        run: node scripts/render-spell-gallery.mjs .spell-review
+
+      - name: Guardar prévias das magias
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: spell-art-review
+          path: .spell-review
+          retention-days: 14
+
       - name: Guardar o site compilado
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3

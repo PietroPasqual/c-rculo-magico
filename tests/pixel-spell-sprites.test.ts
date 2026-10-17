@@ -6,7 +6,7 @@ import { appearanceForScene, boundsOfBeing, layoutParts, layoutScene } from '../
 import { renderPixelScene } from '../src/ui/pixel-scene';
 
 const definitions: [SpellSprite, string, Being['intentForm']?][] = [
-  ['fire-sphere', 'fogo'], ['water-sphere', 'agua'], ['ice-sphere', 'gelo'], ['earth-sphere', 'terra'],
+  ['fire-sphere', 'fogo'], ['lightning-sphere', 'raio'], ['water-sphere', 'agua'], ['ice-sphere', 'gelo'], ['earth-sphere', 'terra'],
   ['metal-sphere', 'metal'], ['fire-lance', 'fogo', 'lanca'], ['water-dragon', 'agua', 'dragao'], ['lightning-ring', 'raio', 'anel']
 ];
 const palette = ['#1b1831', '#4a3d5b', '#8b668b', '#c895ad', '#f1cec7', '#fff3db', '#ffffff'].map(rgb);

@@ -6,8 +6,8 @@ import { elementalSphereBounds, paintElementalSphere } from '../src/ui/pixel-ele
 import { paintMaterialInteraction, type InteractionMaterial, type MaterialInteractionOptions } from '../src/ui/pixel-material-interaction';
 
 const ramps: Record<string, RGB[]> = Object.fromEntries(Object.entries({
-  fogo: ['#3b1029', '#7d1f3b', '#cb3c35', '#f87935', '#ffc45c', '#fff1b8', '#fffdf1'],
-  raio: ['#54204b', '#a64b44', '#ed9c38', '#ffe878', '#fff9ca', '#ffffff'],
+  fogo: ['#32142b', '#762040', '#c63a48', '#f66c42', '#ffb65f', '#ffe4a4', '#fff7df'],
+  raio: ['#1b204d', '#3b4d9d', '#438fd3', '#5adce4', '#b6f9ee', '#f3fff5'],
   agua: ['#122346', '#17466a', '#237e9b', '#4dbac5', '#9de5df', '#ecfff1'],
   gelo: ['#26345e', '#3d6294', '#619dc9', '#90d8e7', '#c5f1ef', '#f4ffff'],
   terra: ['#302632', '#57403a', '#8a6343', '#bb955d', '#e0c68d'],
@@ -275,6 +275,44 @@ describe('Material contact inside one authored spell body', () => {
     }
   });
 
+  it.each([
+    { elements: ['fogo', 'raio'], points: [[22, 16], [23, 24], [25, 32]], hotFrames: [0, 2, 5] },
+    { elements: ['metal', 'raio'], points: [[26, 16], [23, 24], [26, 32]], hotFrames: [0, 3, 6] }
+  ])('$elements conducts a visible root-to-tip discharge and cools behind it', ({ elements, points, hotFrames }) => {
+    const frames = Array.from({ length: 8 }, (_, frame) => render(elements, { frame, seed: 3, linked: true, merged: true }));
+    const signatures = frames.map(p => Array.from(p.data).join(','));
+    expect(new Set(signatures).size).toBeGreaterThanOrEqual(6);
+    for (let frame = 0; frame < 8; frame++) {
+      expect(countChanged(frames[frame], frames[(frame + 1) % 8])).toBeGreaterThan(2);
+    }
+    // These are occupied points on the actual contact, not another clock:
+    // the hottest electric sample must reach the root, middle and tip in order.
+    points.forEach(([x, y], i) => {
+      const tones = frames.map(p => {
+        const color = at(p, x, y);
+        return ramps.raio.findIndex(c => c.every((channel, j) => channel === color[j]));
+      });
+      const hottest = Math.max(...tones), peakFrame = tones.indexOf(hottest);
+      expect(hottest).toBeGreaterThanOrEqual(3);
+      expect(peakFrame).toBe(hotFrames[i]);
+      expect(tones[(peakFrame + 2) % 8]).toBeLessThan(hottest);
+    });
+    expect(render(elements, { frame: 8, seed: 3, linked: true, merged: true }).data).toEqual(frames[0].data);
+  });
+
+  it('lets the flame respond one frame after its electrical front, then cool', () => {
+    const frames = Array.from({ length: 8 }, (_, frame) => render(['fogo', 'raio'], { frame, seed: 3, linked: true, merged: true }));
+    const toneAt = (palette: RGB[], x: number, y: number): number[] => frames.map(p => {
+      const color = at(p, x, y);
+      return palette.findIndex(c => c.every((channel, j) => channel === color[j]));
+    });
+    const electrical = toneAt(ramps.raio, 23, 24), flame = toneAt(ramps.fogo, 22, 24);
+    const discharge = electrical.indexOf(Math.max(...electrical)), response = flame.indexOf(Math.max(...flame));
+    expect(discharge).toBe(2);
+    expect(response).toBe((discharge + 1) % 8);
+    expect(flame[(response + 1) % 8]).toBeLessThan(flame[response]);
+  });
+
   it('does nothing for a single/duplicate material, empty palette or invalid bounds', () => {
     const p = body('fogo');
     for (const input of [[], materials(['fogo']), materials(['fogo', 'fogo']), [{ element: 'agua', ramp: [] }, ...materials(['fogo'])]]) {
@@ -295,8 +333,8 @@ describe('Material contact inside one authored spell body', () => {
     }
   });
 
-  it('mirrors only material coordinates for a returned body and keeps its already-painted lighting', () => {
-    const p = body('fogo'), mirror = (source: Pix): Pix => {
+  it.each([['fogo', 'raio'], ['metal', 'raio']])('%s/%s mirrors its moving contact while keeping the returned body lighting', (a, b) => {
+    const p = body(a), mirror = (source: Pix): Pix => {
       const result = new Pix(source.w, source.h);
       for (let y = 0; y < source.h; y++) for (let x = 0; x < source.w; x++) {
         const from = (y * source.w + x) * 4, to = (y * source.w + source.w - 1 - x) * 4;
@@ -306,8 +344,8 @@ describe('Material contact inside one authored spell body', () => {
     };
     const mirroredBounds = { ...bounds, l: p.w - 1 - bounds.r, r: p.w - 1 - bounds.l };
     for (let frame = 0; frame < 8; frame++) {
-      const forward = render(['fogo', 'raio'], { frame, linked: true, merged: true }, p), returned = mirror(p);
-      paintMaterialInteraction(returned, mirroredBounds, materials(['fogo', 'raio']), { frame, seed: 3, linked: true, merged: true, reverse: true });
+      const forward = render([a, b], { frame, linked: true, merged: true }, p), returned = mirror(p);
+      paintMaterialInteraction(returned, mirroredBounds, materials([a, b]), { frame, seed: 3, linked: true, merged: true, reverse: true });
       expect(returned.data).toEqual(mirror(forward).data);
       assertMaskAndEdgePreserved(mirror(p), returned);
     }

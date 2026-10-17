@@ -1,4 +1,5 @@
 import type { Appearance, Being } from '../core/appearance';
+import { spellRamp as rampOf } from './pixel-spell-palette';
 import { clamp01, darken, fbm, inPoly, lighten, mixRGB, Pix, rgb, type RGB } from './pixel';
 import { jitter, seeded, type Rand } from './sketch';
 import { materialPixel, type SpellMaterial } from './pixel-materials';
@@ -27,36 +28,7 @@ const R = Math.round;
 
 // ---------- cores ----------
 
-/** Degradê de cada elemento, do mais escuro ao brilho */
-const RAMP_HEX: Record<string, string[]> = {
-  fogo: ['#3b1029', '#7d1f3b', '#cb3c35', '#f87935', '#ffc45c', '#fff1b8', '#fffdf1'],
-  raio: ['#54204b', '#a64b44', '#ed9c38', '#ffe878', '#fff9ca', '#ffffff'],
-  luz: ['#a65f00', '#f59f00', '#ffd43b', '#fff3bf', '#ffffff'],
-  agua: ['#122346', '#17466a', '#237e9b', '#4dbac5', '#9de5df', '#ecfff1'],
-  gelo: ['#26345e', '#3d6294', '#619dc9', '#90d8e7', '#c5f1ef', '#f4ffff'],
-  vento: ['#0b5a45', '#0ca678', '#38d9a9', '#96f2d7', '#e6fcf5'],
-  terra: ['#302632', '#57403a', '#8a6343', '#bb955d', '#e0c68d'],
-  materia: ['#3f1d0b', '#6e3417', '#a0522d', '#c97b4e', '#e8b38f'],
-  gravidade: ['#1b2266', '#2f3fa8', '#4c6ef5', '#91a7ff', '#dbe4ff'],
-  metal: ['#202b43', '#45526c', '#8196a4', '#c8d8d6', '#f5fff1'],
-  som: ['#4b1460', '#862e9c', '#be4bdb', '#e599f7', '#f8e8fc'],
-  natureza: ['#1e5e2a', '#2b8a3e', '#40c057', '#8ce99a', '#ebfbee'],
-  acido: ['#3d6108', '#5c940d', '#94c11f', '#c0eb75', '#f4fce3'],
-  ilusao: ['#4a1660', '#7b2a91', '#cc5de8', '#e599f7', '#f8f0fc'],
-  sombra: ['#10101d', '#242039', '#48415e', '#766b8d', '#b8adcf'],
-  espaco: ['#1a0f45', '#3b2390', '#5f3dc4', '#9775fa', '#ece4ff'],
-  vida: ['#1e5e2a', '#2b8a3e', '#51cf66', '#8ce99a', '#ebfbee'],
-  morte: ['#121417', '#2b2f33', '#495057', '#868e96', '#dee2e6'],
-  tempo: ['#6b3d00', '#a65f00', '#f59f00', '#ffd43b', '#fff9db'],
-  movimento: ['#074a57', '#0b7285', '#15aabf', '#66d9e8', '#e3fafc'],
-  pressao: ['#18286b', '#253c9c', '#4263eb', '#91a7ff', '#e7f0ff'],
-  caos: ['#6b0f2f', '#a61e4d', '#e64980', '#faa2c1', '#fff0f6'],
-  infinito: ['#2a1670', '#4325a8', '#7950f2', '#b197fc', '#f3f0ff'],
-  vazio: ['#080b13', '#161b2b', '#303953', '#505e79', '#b4c3d9']
-};
-const FALLBACK = ['#5c4520', '#7a5f2e', '#c9a86a', '#e9d5a8', '#fff8e6'];
-const rampOf = (el: string | undefined): RGB[] => (RAMP_HEX[el ?? ''] ?? FALLBACK).map(rgb);
-const FIRE = RAMP_HEX.fogo.map(rgb);
+const FIRE = rampOf('fogo');
 const WHITE: RGB = [255, 255, 255];
 const top = (r: RGB[]): RGB => r[r.length - 1];
 const mid = (r: RGB[]): RGB => r[Math.floor(r.length / 2)];
@@ -73,6 +45,10 @@ function beingRamp(b: Being): RGB[] {
   const primary = rampOf(b.elements[0] ?? b.concepts[0]);
   const fused = fusedElements(b);
   if (fused.length < 2) return primary;
+  // Warm flame planes and cold electricity need distinct hues even in one
+  // fused volume. The shared surface carries the secondary channel and its
+  // delayed response; averaging these complementary ramps erases both.
+  if ((fused[0] === 'fogo' || fused[0] === 'raio') && fused.includes('fogo') && fused.includes('raio')) return primary;
   const ramps = fused.map(rampOf);
   return primary.map((_, i) => ramps.reduce((color, r, j) => mixRGB(color, r[R(i / (primary.length - 1) * (r.length - 1))], 1 / (j + 1)), primary[i]));
 }

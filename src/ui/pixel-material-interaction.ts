@@ -127,12 +127,14 @@ function sharedSurface(a: InteractionMaterial, b: InteractionMaterial, s: Surfac
   if (has('fogo') && has('raio')) {
     const fire = of('fogo'), electric = of('raio');
     const along = s.wide ? u : v, across = s.wide ? v : u;
-    // The electrical front travels through the existing hot fold. Its orange
-    // response follows one eighth-turn later, so these read as one reaction.
-    const pulseAt = .5 + Math.sin(phase) * .29;
-    const afterAt = .5 + Math.sin(phase - TAU / 8) * .29;
-    const pulse = clamp01(1 - Math.abs(along - pulseAt) / .17);
-    const after = clamp01(1 - Math.abs(along - afterAt) / .2);
+    // One front conducts from root to tip, cools, then returns through the
+    // shared eight-frame loop. Its orange response follows one frame later;
+    // it never reverses direction like a sinusoidal highlight.
+    const progress = clamp01((along - .14) / .74);
+    const age = ((phase / TAU - progress) % 1 + 1) % 1;
+    const responseAge = ((phase / TAU - 1 / 8 - progress) % 1 + 1) % 1;
+    const pulse = clamp01(1 - age / .19);
+    const after = clamp01(1 - responseAge / .24);
     const center = s.wide ? .51 : fused ? .46 : .61;
     const bend = s.wide ? .035 : .08;
     const bolt = pathDistance(across, along, [
@@ -142,7 +144,7 @@ function sharedSurface(a: InteractionMaterial, b: InteractionMaterial, s: Surfac
     const branch = s.wide ? 1 : pathDistance(across, along, [[center + .01, .51], [center + .16, .42], [center + .12, .29]]);
     const d = Math.min(bolt, branch), pixel = s.wide ? s.py : s.px;
     const core = Math.max(.018, Math.min(.055, pixel * .65));
-    if (d < core * (.65 + pulse * .35) && along > .16 && along < .86) return swatch(electric, .61 + pulse * .29);
+    if (d < core * (.65 + pulse * .35) && along > .16 && along < .86) return swatch(electric, .24 + pulse * .72);
     if (d < core * (1.6 + after * .9) && along > .18 && along < .85) {
       return pulse > .5 && d < core * 1.6 ? contact(fire, .65 + tone * .1, electric, .81) : swatch(fire, .43 + after * .31 + tone * .12);
     }
@@ -175,8 +177,17 @@ function sharedSurface(a: InteractionMaterial, b: InteractionMaterial, s: Surfac
     // Current bends at one reflection plane and has a darker conductive rail.
     const rail = .61 + (v > .53 ? (v - .53) * .55 : 0) + grain;
     const d = Math.abs(reflection - rail);
-    if (v > .17 && v < .83 && d < one * .85) return swatch(electric, .83);
-    if (v > .2 && v < .8 && d < one * 2.8) return swatch(metal, d < one * 1.6 ? .17 : .58 + tone * .17);
+    // A discharge runs along the conductive rail instead of illuminating its
+    // entire length continuously. The dark socket remains visible after it;
+    // only the nearby metal plane catches a brief reflected cyan step.
+    const progress = clamp01((v - .17) / .66);
+    const age = ((phase / TAU - progress) % 1 + 1) % 1;
+    const pulse = clamp01(1 - age / .2);
+    if (v > .17 && v < .83 && d < one * .85) return swatch(electric, .2 + pulse * .76);
+    if (v > .2 && v < .8 && d < one * 2.8) {
+      if (d < one * 1.6) return swatch(metal, .14 + pulse * .08);
+      return pulse > .3 ? contact(metal, .58 + tone * .17, electric, .5 + pulse * .4) : swatch(metal, .58 + tone * .17);
+    }
     if (b === metal && broad && reflection > .52 && reflection < .88) return swatch(metal, volume);
     return null;
   }
